@@ -9,7 +9,7 @@ class GItype(Enum):
 
 
 @dataclass
-class OFDMparams:
+class OFDMconfig:
     Ncs: int  # subcarriers number
     GI: int  # guard interval
     Type: GItype
