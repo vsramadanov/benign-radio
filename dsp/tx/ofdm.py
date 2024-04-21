@@ -40,7 +40,7 @@ class OFDM(SimUnit):
 
     def process(self, symbols: np.array) -> np.array:
         L = len(symbols) // self.config.Ncs  # number of OFDM symbols
-        symbols.resize(L, self.config.Ncs)
+        symbols = symbols.reshape(L, self.config.Ncs)
         ofdm_symbols = ifft(symbols, axis=1)
 
         return self.__add_gi_protector(ofdm_symbols).flatten()
