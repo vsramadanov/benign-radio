@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from simulation.params import SimParams
@@ -9,6 +10,8 @@ from dsp.rx.ofdm.frontend import OFDMfrontend
 from dsp.rx.ofdm.equalizer import OFDMChannleEqualizer
 from dsp.rx.ofdm.estimator import OFDMChannleEstimator
 from dsp.rx.ofdm.chain import OFDMRxChain
+
+logging.basicConfig(level=logging.DEBUG)
 
 SimParams(
     fc=10e9,
