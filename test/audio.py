@@ -5,6 +5,10 @@ from dataclasses import dataclass
 
 from simulation.unit import SimUnit
 
+from dsp.resampling import PolyResampler
+from dsp.resampling import PolyResamplerConfig
+
+from scipy.signal import hilbert
 
 class CallbackPlayer(SimUnit):
     def __init__(self, src: np.array) -> None:
@@ -65,6 +69,19 @@ class AudioChannel(SimUnit):
         self.config.format = getattr(pyaudio, 'pa' + self.config.format)
         self.logger.info(f'created with config: {config}')
 
+        self.upsampler = PolyResampler(
+            config=PolyResamplerConfig(
+                fin=self.params.fs,
+                fout=self.config.fs,
+            )
+        )
+        self.downsampler = PolyResampler(
+            config=PolyResamplerConfig(
+                fin=self.config.fs,
+                fout=self.params.fs,
+            )
+        )
+
     def __enter__(self):
         self.ctx = pyaudio.PyAudio()
         self.logger.info('PyAudio context created')
@@ -116,3 +133,14 @@ class AudioChannel(SimUnit):
         self.logger.debug(f'received {raw_recv.shape[0]} samples, '
                           f'{raw_recv.shape[0] / self.config.fs} seconds of data')
         return raw_recv
+
+    def process(self, tx_signal) -> np.array:
+        upsampled = self.upsampler.process(tx_signal)
+        upsampled_scaled = (2**14 * upsampled).astype(np.int16)
+
+        raw_recv = self.process_raw(upsampled_scaled)
+        recv = hilbert(raw_recv.astype(np.float64))
+
+        recv_downsampled = self.downsampler.process(recv)
+
+        return recv_downsampled
