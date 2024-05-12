@@ -5,5 +5,5 @@ from utils import Singleton
 
 @dataclass(frozen=True)
 class SimParams(metaclass=Singleton):
-    fc: int = 3e9
-    fs: int = 25e6
+    fc: int
+    fs: int
