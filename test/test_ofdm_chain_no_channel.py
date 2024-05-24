@@ -11,8 +11,9 @@ from dsp.rx.ofdm.equalizer import OFDMChannleEqualizer
 from dsp.rx.ofdm.estimator import OFDMChannleEstimator
 from dsp.rx.ofdm.chain import OFDMRxChain
 
-Nsymb = 1000 # OFDM symbols to simulate
-Scs = 1e3 # subcarrier spacing
+Nsymb = 1000  # OFDM symbols to simulate
+Scs = 1e3  # subcarrier spacing
+
 
 @pytest.mark.parametrize("fs", (6e3, 12e3,))
 def test_ofdm_chain(fs):
@@ -23,7 +24,7 @@ def test_ofdm_chain(fs):
         fs=fs,
     )
 
-    Nsc = int(SimParams().fs / Scs) # number of subcarriers
+    Nsc = int(SimParams().fs / Scs)  # number of subcarriers
     test_ofdm_config = OFDMconfig(
         Ncs=Nsc,
         GI=4,

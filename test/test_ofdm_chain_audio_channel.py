@@ -14,8 +14,9 @@ from dsp.rx.ofdm.chain import OFDMRxChain
 from .audio import AudioChannel
 from .audio import AudioChannelConfig
 
-Nsymb = 1000 # OFDM symbols to simulate
-Scs = 1e3 # subcarrier spacing
+Nsymb = 1000  # OFDM symbols to simulate
+Scs = 1e3  # subcarrier spacing
+
 
 @pytest.mark.parametrize("fs", (6e3, 12e3,))
 def test_ofdm_chain(fs):
@@ -28,7 +29,7 @@ def test_ofdm_chain(fs):
 
     logging.info(f'Test with SimParams: {SimParams()}')
 
-    Nsc = int(SimParams().fs / Scs) # number of subcarriers
+    Nsc = int(SimParams().fs / Scs)  # number of subcarriers
     test_ofdm_config = OFDMconfig(
         Ncs=Nsc,
         GI=4,
@@ -43,12 +44,12 @@ def test_ofdm_chain(fs):
     )
 
     audio_ch_conf = AudioChannelConfig(
-        fs = 48000,
+        fs=48000,
         channels=1,
         format='Int16',
         chunk=1024,
     )
-    
+
     bitstream = np.random.randint(0, 2, Nsc * Nsymb)
 
     tx_symbols = 2*bitstream - 1

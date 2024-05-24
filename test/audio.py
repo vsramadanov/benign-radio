@@ -10,6 +10,7 @@ from dsp.resampling import PolyResamplerConfig
 
 from scipy.signal import hilbert
 
+
 class CallbackPlayer(SimUnit):
     def __init__(self, src: np.array) -> None:
         super().__init__()
