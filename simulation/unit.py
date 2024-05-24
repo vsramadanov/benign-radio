@@ -21,3 +21,5 @@ class SimUnit:
 
         else:
             cls.store = NoStoreHandler.store
+
+        cls.__str__ = lambda self: f"{cls.__name__}, config={self.config}"

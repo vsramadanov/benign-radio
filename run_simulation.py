@@ -2,6 +2,8 @@ import logging
 import numpy as np
 
 from simulation.params import SimParams
+from simulation.datastore import DaraStore
+
 from channel.path_loss import PathLossChannel
 
 from dsp.tx.ofdm import OFDM, OFDMconfig, GItype
@@ -18,6 +20,12 @@ SimParams(
     fs=25e6,
 )
 
+DaraStore(
+    names=[
+        "dsp.rx.ofdm.chain.OFDMRxChain",
+    ]
+)
+
 example_ofdm = OFDMconfig(
     Ncs=12,
     GI=4,
@@ -27,18 +35,13 @@ example_ofdm = OFDMconfig(
 ofdm_modulator = OFDM(config=example_ofdm)
 
 data = np.random.randint(0, 2, 24)
-print("data=", data)
 
 # Transmitter
 
 # symbol modulation
 tx_symbols = 2*data - 1
-print("bpsk=", tx_symbols)
 
 ofdm_signal = ofdm_modulator.process(tx_symbols)
-
-print("ofdm=", ofdm_signal)
-print("ofdm.shape=", ofdm_signal.shape)
 
 recv_ofdm_signal = ofdm_signal
 

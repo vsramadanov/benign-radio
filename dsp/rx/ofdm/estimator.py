@@ -5,7 +5,7 @@ from simulation.unit import SimUnit
 
 class OFDMChannleEstimator(SimUnit):
     def __init__(self) -> None:
-        pass
+        self.config = []
 
     def process(self, symbols: np.array) -> np.array:
         _, Nsc = symbols.shape

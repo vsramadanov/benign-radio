@@ -16,6 +16,11 @@ class OFDMRxChain(SimUnit):
         self.estimator = estimator
         self.equalizer = equalizer
 
+        self.logger.info(f"Init chain with\n"
+                         f"\tfrontend={frontend}\n"
+                         f"\testimator={estimator}\n"
+                         f"\tequalizer={equalizer}")
+
     def process(self, ofdm_symbols: np.array) -> np.array:
         symbols = self.frontend.process(ofdm_symbols)
         chest = self.estimator.process(symbols)
