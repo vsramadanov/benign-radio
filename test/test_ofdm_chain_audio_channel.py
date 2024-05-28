@@ -18,6 +18,7 @@ Nsymb = 1000  # OFDM symbols to simulate
 Scs = 1e3  # subcarrier spacing
 
 
+@pytest.mark.audio
 @pytest.mark.parametrize("fs", (6e3, 12e3,))
 def test_ofdm_chain(fs):
     logging.basicConfig(level=logging.DEBUG)
