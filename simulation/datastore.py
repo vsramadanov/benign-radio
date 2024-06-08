@@ -35,7 +35,7 @@ class DaraStore(metaclass=Singleton):
     def __init__(self, config: DataStoreConfig) -> None:
         self.data = {}
         self.config = config
-        self.logger = logging.getLogger('DataStore')
+        self.logger = logging.getLogger('simulation.DataStore')
         self.logger.info('init DataStore')
 
         for name in config.names:

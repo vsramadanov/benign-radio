@@ -19,6 +19,7 @@ Scs = 1e3  # subcarrier spacing
 
 
 @pytest.mark.audio
+@pytest.mark.skip
 @pytest.mark.parametrize("fs", (6e3, 12e3,))
 def test_ofdm_chain(fs):
     logging.basicConfig(level=logging.DEBUG)

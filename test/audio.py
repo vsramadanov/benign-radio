@@ -2,11 +2,9 @@ import pyaudio
 import time
 import numpy as np
 from dataclasses import dataclass
+from fractions import Fraction
 
 from simulation.unit import SimUnit
-
-from dsp.resampling import PolyResampler
-from dsp.resampling import PolyResamplerConfig
 
 from scipy.signal import hilbert
 
@@ -15,22 +13,29 @@ class CallbackPlayer(SimUnit):
     def __init__(self, src: np.array) -> None:
         super().__init__()
 
-        self.data = src.astype(np.int16).tobytes()
+        self.raw_data = src.astype(np.int16).tobytes()
         self.len = len(src)
-        self.frame = 0
-        self.logger.info(f'initiated with {self.len} frames')
+        self.idx = 0
+        self.logger.info(f'initiated with {self.len} samples')
 
     def __call__(self, in_data, frame_count, time_info, status):
 
-        begin = self.frame
-        end = min(self.frame + frame_count, self.len)
+        start = self.idx
+        stop = min(self.idx + frame_count, self.len)
 
-        self.frame = end
+        self.idx = stop
 
-        data = self.data[2*begin:2*end]  # int16 contains 2 bytes
-        if (end < self.len):
+        data = self.raw_data[2*start:2*stop]  # int16 contains 2 bytes
+
+        if (stop < self.len):
+            self.logger.debug(f'requested {frame_count} samples, '
+                              f'provided: {stop - start}\n'
+                              f'\ttime info: {time_info}, status: {status}')
             return data, pyaudio.paContinue
 
+        self.logger.debug(f'requested {frame_count} samples, '
+                          f'provided: {stop - start}. stream is finnished\n'
+                          f'\ttime info: {time_info}, status: {status}')
         return data, pyaudio.paComplete
 
 
@@ -38,12 +43,14 @@ class CallbackRecorder(SimUnit):
     def __init__(self, dst: list) -> None:
         super().__init__()
 
-        self.data = dst
+        self.dst = dst
         self.logger.info('Recorder created')
 
     def __call__(self, in_data, frame_count, time_info, status):
         data = np.frombuffer(in_data, dtype=np.int16)
-        self.data.append(data)
+        self.logger.debug(f'received {frame_count} samples, {len(in_data)} bytes\n'
+                          f'\ttime info: {time_info}, status: {status}')
+        self.dst.append(data)
         return None, pyaudio.paContinue
 
 
@@ -53,6 +60,7 @@ class AudioChannelConfig:
     channels: int
     format: str
     chunk: int
+    tx_zero_prefix: float
 
 
 class AudioChannel(SimUnit):
@@ -70,18 +78,15 @@ class AudioChannel(SimUnit):
         self.config.format = getattr(pyaudio, 'pa' + self.config.format)
         self.logger.info(f'created with config: {config}')
 
-        self.upsampler = PolyResampler(
-            config=PolyResamplerConfig(
-                fin=self.params.fs,
-                fout=self.config.fs,
-            )
+        ratio = Fraction(
+            numerator=self.config.fs,
+            denominator=self.params.fs,
         )
-        self.downsampler = PolyResampler(
-            config=PolyResamplerConfig(
-                fin=self.config.fs,
-                fout=self.params.fs,
-            )
-        )
+
+        assert ratio.denominator == 1
+
+        self.upscale_factor = ratio.numerator
+        self.downscale_factor = ratio.numerator
 
     def __enter__(self):
         self.ctx = pyaudio.PyAudio()
@@ -89,16 +94,25 @@ class AudioChannel(SimUnit):
 
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, type, value, tb):
         self.ctx.terminate()
         self.logger.info('PyAudio context terminated')
 
-        if not (type is None and value is None and traceback is None):
-            self.logger.error(
-                f'type: {type}, value: {value}, traceback: {traceback}')
+        if not (type is None and value is None and tb is None):
+            self.logger.error(f'type: {type}, value: {value}, traceback: {tb}')
+
+    def __add_zero_prefix(self, tx_signal):
+        prefix_len = int(self.config.tx_zero_prefix * self.config.fs)
+
+        return np.concatenate((
+            np.zeros(prefix_len, dtype=np.int16),
+            tx_signal
+        ), axis=0)
 
     def process_raw(self, tx_signal) -> np.array:
         config = self.config
+
+        tx_signal = self.__add_zero_prefix(tx_signal)
         stream_play = self.ctx.open(format=config.format,
                                     channels=config.channels,
                                     rate=config.fs,
@@ -113,11 +127,13 @@ class AudioChannel(SimUnit):
                                       stream_callback=CallbackRecorder(dst=records))
 
         stream_record.start_stream()
-        self.logger.info('receiver started')
+        self.logger.info(f'receiver started')
         stream_play.start_stream()
         self.logger.info('transmiter started')
 
-        while stream_play.is_active() and stream_record.is_active():
+        while stream_play.is_active():
+            if not stream_record.is_active():
+                self.logger.critical('failure in audio receiver')
             time.sleep(.1)
 
         self.logger.info('transmittion has ended')
@@ -134,14 +150,3 @@ class AudioChannel(SimUnit):
         self.logger.debug(f'received {raw_recv.shape[0]} samples, '
                           f'{raw_recv.shape[0] / self.config.fs} seconds of data')
         return raw_recv
-
-    def process(self, tx_signal) -> np.array:
-        upsampled = self.upsampler.process(tx_signal)
-        upsampled_scaled = (2**14 * upsampled).astype(np.int16)
-
-        raw_recv = self.process_raw(upsampled_scaled)
-        recv = hilbert(raw_recv.astype(np.float64))
-
-        recv_downsampled = self.downsampler.process(recv)
-
-        return recv_downsampled

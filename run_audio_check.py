@@ -4,6 +4,8 @@ import logging
 import matplotlib.pyplot as plt
 
 from simulation.params import SimParams
+from simulation.datastore import DaraStore
+from simulation.datastore import DataStoreConfig
 
 from test.audio import AudioChannelConfig
 from test.audio import AudioChannel
@@ -20,10 +22,16 @@ SimParams(
     fs=int(20e3),
 )
 
+DaraStore(
+    DataStoreConfig(
+        names=[],
+        path='',
+))
+
 RATE = 48000
 
 # Configure Logger
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(filename=f'out/sound_check.log', level=logging.INFO)
 mpl_logger = logging.getLogger('matplotlib')
 mpl_logger.setLevel(level=logging.CRITICAL)
 
@@ -47,7 +55,8 @@ with AudioChannel(
             fs=RATE,
             channels=1,
             format='Int16',
-            chunk=4096
+            chunk=4096,
+            tx_zero_prefix=.1
         )) as channel:
 
     recv = channel.process_raw(tx_signal=(2**14 * signal).astype(np.int16))
