@@ -7,6 +7,9 @@ class QAMConstellation:
         assert ((order & (order - 1)) == 0)
         pow = int(np.round(np.log2(order)))
 
+        self.order = order
+        self.pow = pow
+
         ytiks = 2 ** int(np.floor(pow / 2))
         xtiks = order // ytiks
         x = np.linspace(-1, 1, xtiks)
@@ -17,8 +20,12 @@ class QAMConstellation:
         self.__values = np.arange(order).reshape(self.__symbols.shape)
 
     @property
-    def constellation(self):
+    def symbols(self):
         return self.__symbols
+
+    @property
+    def values(self):
+        return self.__values
 
     @property
     def mapping(self):
