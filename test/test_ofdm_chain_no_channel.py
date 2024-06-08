@@ -3,6 +3,8 @@ import logging
 import numpy as np
 
 from simulation.params import SimParams
+from simulation.datastore import DaraStore
+from simulation.datastore import DataStoreConfig
 
 from dsp.tx.ofdm import OFDM, OFDMconfig, GItype
 
@@ -24,6 +26,11 @@ def test_ofdm_chain(fs):
         fc=10e3,
         fs=fs,
     )
+
+    DaraStore(config=DataStoreConfig(
+        path='out/dumps',
+        names=[]
+    ))
 
     Nsc = int(SimParams().fs / Scs)  # number of subcarriers
     test_ofdm_config = OFDMconfig(
