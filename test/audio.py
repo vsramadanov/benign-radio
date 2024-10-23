@@ -1,152 +1,91 @@
-import pyaudio
-import time
 import numpy as np
+import subprocess
+
 from dataclasses import dataclass
-from fractions import Fraction
-
 from simulation.unit import SimUnit
-
-from scipy.signal import hilbert
-
-
-class CallbackPlayer(SimUnit):
-    def __init__(self, src: np.array) -> None:
-        super().__init__()
-
-        self.raw_data = src.astype(np.int16).tobytes()
-        self.len = len(src)
-        self.idx = 0
-        self.logger.info(f'initiated with {self.len} samples')
-
-    def __call__(self, in_data, frame_count, time_info, status):
-
-        start = self.idx
-        stop = min(self.idx + frame_count, self.len)
-
-        self.idx = stop
-
-        data = self.raw_data[2*start:2*stop]  # int16 contains 2 bytes
-
-        if (stop < self.len):
-            self.logger.debug(f'requested {frame_count} samples, '
-                              f'provided: {stop - start}\n'
-                              f'\ttime info: {time_info}, status: {status}')
-            return data, pyaudio.paContinue
-
-        self.logger.debug(f'requested {frame_count} samples, '
-                          f'provided: {stop - start}. stream is finnished\n'
-                          f'\ttime info: {time_info}, status: {status}')
-        return data, pyaudio.paComplete
-
-
-class CallbackRecorder(SimUnit):
-    def __init__(self, dst: list) -> None:
-        super().__init__()
-
-        self.dst = dst
-        self.logger.info('Recorder created')
-
-    def __call__(self, in_data, frame_count, time_info, status):
-        data = np.frombuffer(in_data, dtype=np.int16)
-        self.logger.debug(f'received {frame_count} samples, {len(in_data)} bytes\n'
-                          f'\ttime info: {time_info}, status: {status}')
-        self.dst.append(data)
-        return None, pyaudio.paContinue
 
 
 @dataclass
 class AudioChannelConfig:
-    fs: int
+    rate: int
     channels: int
     format: str
-    chunk: int
-    tx_zero_prefix: float
+    device: str
 
 
-class AudioChannel(SimUnit):
+class RawAudioChannel(SimUnit):
     def __init__(self, config: AudioChannelConfig) -> None:
         super().__init__()
 
-        if config.fs <= 2 * (self.params.fc + self.params.fs / 2):
+        if config.rate <= 2 * (self.params.fc + self.params.fs / 2):
             self.logger.critical(f'Unable to reproduce signal '
                                  f'with carrier frequency {self.params.fc} '
                                  f'and baseband {self.params.fs}'
-                                 f'on sampling frequency {config.fs}')
+                                 f'on sampling frequency {config.rate}')
+            assert False
+
+        if config.channels not in (1, 2):
+            self.logger.critical(
+                f'{config.channels} channels seems to be not supported by audio HW')
             assert False
 
         self.config = config
-        self.config.format = getattr(pyaudio, 'pa' + self.config.format)
         self.logger.info(f'created with config: {config}')
 
-        ratio = Fraction(
-            numerator=self.config.fs,
-            denominator=self.params.fs,
-        )
-
-        assert ratio.denominator == 1
-
-        self.upscale_factor = ratio.numerator
-        self.downscale_factor = ratio.numerator
-
     def __enter__(self):
-        self.ctx = pyaudio.PyAudio()
-        self.logger.info('PyAudio context created')
+
+        self.audio_in_process = self.__run_audio_in()
+        self.audio_out_process = self.__run_audio_out()
 
         return self
 
     def __exit__(self, type, value, tb):
-        self.ctx.terminate()
-        self.logger.info('PyAudio context terminated')
+
+        self.audio_in_process.stdout.close()
+        self.audio_in_process.stderr.close()
+        self.audio_out_process.stderr.close()
+
+        self.audio_in_process.terminate()
+        self.audio_out_process.terminate()
 
         if not (type is None and value is None and tb is None):
             self.logger.error(f'type: {type}, value: {value}, traceback: {tb}')
 
-    def __add_zero_prefix(self, tx_signal):
-        prefix_len = int(self.config.tx_zero_prefix * self.config.fs)
+    def __run_audio_in(self):
+        return subprocess.Popen(
+            ['./csound/audio_in',
+                f'--rate={self.config.rate}', f'--device={self.config.device}'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
 
-        return np.concatenate((
-            np.zeros(prefix_len, dtype=np.int16),
-            tx_signal
-        ), axis=0)
+    def __run_audio_out(self):
+        return subprocess.Popen(
+            ['./csound/audio_out',
+                f'--rate={self.config.rate}', f'--device={self.config.device}'],
+            stdin=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
 
-    def process_raw(self, tx_signal) -> np.array:
-        config = self.config
+    def route_audio(self, input: np.array) -> np.array:
+        if self.config.channels == 1:
+            input = np.repeat(input, 2)
+        recorded_data = []
 
-        tx_signal = self.__add_zero_prefix(tx_signal)
-        stream_play = self.ctx.open(format=config.format,
-                                    channels=config.channels,
-                                    rate=config.fs,
-                                    output=True,
-                                    stream_callback=CallbackPlayer(src=tx_signal))
+        b = self.audio_out_process.stdin.write(input.tobytes())
+        self.logger.debug(f"write {b} bytes to audio_out, close the pipe")
+        self.audio_out_process.stdin.close()
 
-        records = []
-        stream_record = self.ctx.open(format=config.format,
-                                      channels=config.channels,
-                                      rate=config.fs,
-                                      input=True,
-                                      stream_callback=CallbackRecorder(dst=records))
+        while self.audio_out_process.poll() is None:
+            output = self.audio_in_process.stdout.read(4096)
+            self.logger.debug(f"read {len(output)} bytes from audio_in")
+            if not output:
+                break
 
-        stream_record.start_stream()
-        self.logger.info(f'receiver started')
-        stream_play.start_stream()
-        self.logger.info('transmiter started')
+            recorded_data.append(np.frombuffer(output, dtype=np.int16))
 
-        while stream_play.is_active():
-            if not stream_record.is_active():
-                self.logger.critical('failure in audio receiver')
-            time.sleep(.1)
+        output = self.audio_in_process.stdout.read(4096)
+        self.logger.debug(f"read {len(output)} bytes from audio_in")
+        recorded_data.append(np.frombuffer(output, dtype=np.int16))
 
-        self.logger.info('transmittion has ended')
-
-        stream_play.stop_stream()
-        stream_play.close()
-        self.logger.info('transmiter stopped')
-
-        stream_record.stop_stream()
-        stream_record.close()
-        self.logger.info('receiver stopped')
-
-        raw_recv = np.concatenate(records, axis=0)
-        self.logger.debug(f'received {raw_recv.shape[0]} samples, '
-                          f'{raw_recv.shape[0] / self.config.fs} seconds of data')
-        return raw_recv
+        return np.concatenate(recorded_data, axis=0)

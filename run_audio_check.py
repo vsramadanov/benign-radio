@@ -8,7 +8,7 @@ from simulation.datastore import DaraStore
 from simulation.datastore import DataStoreConfig
 
 from test.audio import AudioChannelConfig
-from test.audio import AudioChannel
+from test.audio import RawAudioChannel
 
 from scipy.signal import correlate
 from scipy.signal import chirp
@@ -26,7 +26,7 @@ DaraStore(
     DataStoreConfig(
         names=[],
         path='',
-))
+    ))
 
 RATE = 48000
 
@@ -39,58 +39,28 @@ mpl_logger.setLevel(level=logging.CRITICAL)
 # Prepare data
 #
 
-t0 = 0
-t1 = 5
-f0 = 10
-f1 = 20e3
-time = np.linspace(t0, t1, (t1 - t0) * RATE)
-signal = chirp(t=time, t1=t1, f0=f0, f1=f1, phi=270, method='linear')
+if __name__ == "__main__":
 
-#
-# Transmit & Receive over the audio devices
-#
+    fc = 440  # Hz
+    Tmax = 1  # 1 sec
+    t_sig = np.arange(Tmax * RATE) / RATE
+    signal = np.sin(2 * np.pi * fc * t_sig)
+    signal_q = (signal * (2 ** 15 - 1)).astype(np.int16)
 
-with AudioChannel(
-        config=AudioChannelConfig(
-            fs=RATE,
-            channels=1,
-            format='Int16',
-            chunk=4096,
-            tx_zero_prefix=.1
-        )) as channel:
+    with RawAudioChannel(
+            config=AudioChannelConfig(
+                rate=RATE,
+                channels=1,
+                format='',
+                device="default",
+            )) as ch:
+        input_q = ch.route_audio(signal_q)
 
-    recv = channel.process_raw(tx_signal=(2**14 * signal).astype(np.int16))
+    t_in = np.arange(len(input_q)) / RATE
 
-#
-# Process received data
-#
+    ax1 = plt.subplot(2, 1, 1)
+    ax1.plot(t_sig, signal_q)
 
-trecv = np.arange(recv.shape[0]) / RATE
-
-# find precision chirp location
-cref = chirp(t=time, f0=f0, f1=f1, t1=5, phi=270) + \
-    1j*chirp(t=time, f0=f0, f1=f1, t1=5, phi=0)
-Y = np.abs(correlate(recv, cref, mode='valid'))
-idx = np.argmax(Y)
-
-logging.debug(f"CHIRP signal found at {idx} sample")
-
-# Spectrum
-xc = recv[idx:idx + (t1 - t0) * RATE]  # crop recv signal
-
-freq_resp = np.abs(np.fft.fft(xc))
-freqs = RATE * np.arange(freq_resp.shape[0]) / freq_resp.shape[0]
-Len = freqs.shape[0] // 2
-
-fig, ax = plt.subplots(1, 2)
-ax[0].plot(trecv, recv)
-ax[0].set_xlabel('time, sec')
-ax[0].set_ylabel('Signal')
-ax[0].grid(True)
-
-ax[1].plot(freqs[:Len], 10*np.log10(freq_resp[:Len] / np.max(freq_resp[:Len])))
-ax[1].set_xlabel('freq, Hz')
-ax[1].set_ylabel('Responce')
-ax[1].grid(True)
-
-plt.show()
+    ax2 = plt.subplot(2, 1, 2)
+    ax2.plot(t_in, input_q)
+    plt.show()
