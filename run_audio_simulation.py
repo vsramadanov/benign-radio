@@ -101,13 +101,13 @@ if __name__ == '__main__':
             preamble_corr=corr,
             preamble_offset=offset,
         )
-        
+
         recv = recv[offset:len(time)]
         ds.store(cropped_recv=recv)
 
         recv_z = recv * np.conj(carrier)
         ds.store(rx_signal_zero_freq=recv_z)
-        
+
         # matched filtering
         coeffs = np.ones(RATE // params.fs)
         recv_F = lfilter(b=coeffs, a=1, x=recv_z)
