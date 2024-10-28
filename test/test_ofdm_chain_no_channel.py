@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from simulation.params import SimParams
-from simulation.datastore import DaraStore
+from simulation.datastore import DataStore
 from simulation.datastore import DataStoreConfig
 
 from dsp.tx.ofdm import OFDM, OFDMconfig, GItype
@@ -27,7 +27,7 @@ def test_ofdm_chain(fs):
         fs=fs,
     )
 
-    DaraStore(config=DataStoreConfig(
+    DataStore(config=DataStoreConfig(
         path='out/dumps',
         names=[]
     ))

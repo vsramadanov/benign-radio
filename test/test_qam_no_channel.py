@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from simulation.params import SimParams
-from simulation.datastore import DaraStore
+from simulation.datastore import DataStore
 from simulation.datastore import DataStoreConfig
 
 from dsp.common.qam import QAMConstellation
@@ -23,7 +23,7 @@ def test_qam_modulation_demodulation(order):
         fs=100e3,
     )
 
-    DaraStore(config=DataStoreConfig(
+    DataStore(config=DataStoreConfig(
         path='out/dumps',
         names=[]
     ))

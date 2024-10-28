@@ -1,60 +1,59 @@
 import logging
-import numpy as np
+import argparse
+import importlib
+import yaml
 
 from simulation.params import SimParams
-from simulation.datastore import DaraStore
+from simulation.datastore import DataStore
+from simulation.datastore import DataStoreConfig
 
-from channel.path_loss import PathLossChannel
+parser = argparse.ArgumentParser(description='update YAML configuration.')
+parser.add_argument('-c', '--config', type=str,
+                    help='path to the YAML initial config file.')
+parser.add_argument('--set', action='append', nargs=2, metavar=('key', 'value'),
+                    help='Set config parameter. Example: --set param1.name value1')
+parser.add_argument('scenario', type=str, help='a scenario to run')
 
-from dsp.tx.ofdm import OFDM, OFDMconfig, GItype
 
-from dsp.rx.ofdm.frontend import OFDMfrontend
-from dsp.rx.ofdm.equalizer import OFDMChannleEqualizer
-from dsp.rx.ofdm.estimator import OFDMChannleEstimator
-from dsp.rx.ofdm.chain import OFDMRxChain
+def load_config(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
 
-logging.basicConfig(level=logging.DEBUG)
 
-SimParams(
-    fc=10e9,
-    fs=25e6,
-)
+def save_config(file_path, config):
+    with open(file_path, 'w') as file:
+        yaml.safe_dump(config, file)
 
-DaraStore(
-    names=[
-        "dsp.rx.ofdm.chain.OFDMRxChain",
-    ]
-)
 
-example_ofdm = OFDMconfig(
-    Ncs=12,
-    GI=4,
-    Type=GItype.CP,
-)
+if __name__ == '__main__':
 
-ofdm_modulator = OFDM(config=example_ofdm)
+    args = parser.parse_args()
+    config = load_config(args.config)
 
-data = np.random.randint(0, 2, 24)
+    if args.set:
+        for key, value in args.set:
+            field = config
+            for entry in key.split('.'):
+                field = field[entry]
+            field = value
 
-# Transmitter
+    logging.basicConfig(**config['logging'])
+    for module in ['matplotlib', 'PIL']:
+        logger = logging.getLogger(module)
+        logger.setLevel(level=logging.CRITICAL)
 
-# symbol modulation
-tx_symbols = 2*data - 1
+    SimParams(**config['SimParams'])
 
-ofdm_signal = ofdm_modulator.process(tx_symbols)
+    dsconfig = DataStoreConfig(**config['DataStore'])
+    ds = DataStore(config=dsconfig)
 
-recv_ofdm_signal = ofdm_signal
+    scenario = importlib.import_module(args.scenario).Scenario()
 
-# Receiver
-receiver = OFDMRxChain(
-    frontend=OFDMfrontend(config=example_ofdm),
-    estimator=OFDMChannleEstimator(),
-    equalizer=OFDMChannleEqualizer(),
-)
+    try:
+        scenario.run(config)
 
-rx_symbols = receiver.process(recv_ofdm_signal)
+    except Exception as e:
+        logging.critical(f"Oops: {type(e).__name__}: {e}. Simulation stopped")
 
-# symbol demodulation
-rx_data = ((rx_symbols / np.abs(rx_symbols) + 1) / 2).astype(np.int64)
-
-assert np.all(data == rx_data)  # no noise no error
+    finally:
+        ds.flush()

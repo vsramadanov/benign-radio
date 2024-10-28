@@ -4,7 +4,7 @@ import logging
 import matplotlib.pyplot as plt
 
 from simulation.params import SimParams
-from simulation.datastore import DaraStore
+from simulation.datastore import DataStore
 from simulation.datastore import DataStoreConfig
 
 from test.audio import AudioChannelConfig
@@ -22,7 +22,7 @@ SimParams(
     fs=int(20e3),
 )
 
-DaraStore(
+DataStore(
     DataStoreConfig(
         names=[],
         path='',

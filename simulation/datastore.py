@@ -31,7 +31,7 @@ class DataStoreConfig:
     names: list[str]
 
 
-class DaraStore(metaclass=Singleton):
+class DataStore(metaclass=Singleton):
     def __init__(self, config: DataStoreConfig) -> None:
         self.data = {}
         self.config = config

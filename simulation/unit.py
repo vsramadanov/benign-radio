@@ -1,14 +1,14 @@
 import logging
 
 from .params import SimParams
-from .datastore import DaraStore
+from .datastore import DataStore
 from .datastore import NoStoreHandler
 
 
 class SimUnit:
     def __init__(self) -> None:
         self.params = SimParams()
-        storage = DaraStore().data.get(self.full_cls_name, None)
+        storage = DataStore().data.get(self.full_cls_name, None)
         if storage:
             self.store = storage.store
             self.logger.info(f"add DataStore entry")

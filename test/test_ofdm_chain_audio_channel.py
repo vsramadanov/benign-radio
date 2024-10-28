@@ -11,7 +11,7 @@ from dsp.rx.ofdm.equalizer import OFDMChannleEqualizer
 from dsp.rx.ofdm.estimator import OFDMChannleEstimator
 from dsp.rx.ofdm.chain import OFDMRxChain
 
-from .audio import AudioChannel
+from .audio import RawAudioChannel
 from .audio import AudioChannelConfig
 
 Nsymb = 1000  # OFDM symbols to simulate
@@ -58,8 +58,8 @@ def test_ofdm_chain(fs):
 
     ofdm_signal = ofdm_modulator.process(tx_symbols)
 
-    with AudioChannel(config=audio_ch_conf) as channel:
-        recv_ofdm_signal = channel.process(ofdm_signal)  # propagation
+    with RawAudioChannel(config=audio_ch_conf) as channel:
+        recv_ofdm_signal = channel.route_audio(ofdm_signal)  # propagation
 
     rx_symbols = ofdm_rx_chain.process(recv_ofdm_signal)
 

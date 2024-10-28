@@ -3,57 +3,33 @@ import logging
 
 from scipy.signal import lfilter
 
-from simulation.params import SimParams
-from simulation.datastore import DaraStore
-from simulation.datastore import DataStoreConfig
-
 from test.audio import AudioChannelConfig
 from test.audio import RawAudioChannel
+
+from simulation.params import SimParams
+from simulation.datastore import DataStore
 
 from dsp.common.qam import QAMConstellation
 from dsp.tx.qam import QAMModulator
 from dsp.rx.qam import QAMSoftDemodulator
 
-#
-# Config
-#
-ds = DaraStore(config=DataStoreConfig(
-    path='out/dumps',
-    names=[
-        '__main__',
-        'test.audio.AudioChannel',
-    ]
-))
 
-params = SimParams(
-    fc=int(4e3),
-    fs=int(1e3),
-)
+class Scenario:
 
-RATE = 48000
-audio_cfg = AudioChannelConfig(
-    rate=RATE,
-    channels=1,
-    format='Int16',
-    device="default"
-)
+    def run(self, config: dict):
 
-logging.basicConfig(filename='out/audio_sim.log', level=logging.DEBUG)
-for module in ['matplotlib', 'PIL']:
-    logger = logging.getLogger(module)
-    logger.setLevel(level=logging.CRITICAL)
+        params = SimParams()
+        ds = DataStore()
 
+        audio_cfg = AudioChannelConfig(**config['AudioChannelConfig'])
 
-if __name__ == '__main__':
-
-    try:
         #
         # Prepare data
         #
         Nsymb = 1000
         Npreamb = 25
         QAMpow = 2
-        SFlen = RATE // params.fs  # shaping filter len
+        SFlen = audio_cfg.rate // params.fs  # shaping filter len
         payload = np.random.randint(0, 2, Nsymb * QAMpow)
 
         constellation = QAMConstellation(order=2 ** QAMpow)
@@ -70,7 +46,7 @@ if __name__ == '__main__':
         # Move to carrier
         #
         symbols_rep = np.repeat(symbols, SFlen)
-        time = np.arange(len(symbols_rep)) / RATE
+        time = np.arange(len(symbols_rep)) / audio_cfg.rate
         carrier = np.exp(-1j*2*np.pi*params.fc*time)
         iq_signal = symbols_rep * carrier
         signal = np.real(iq_signal)
@@ -92,7 +68,7 @@ if __name__ == '__main__':
         #
 
         # matched filtering
-        time = np.arange(SFlen) / RATE
+        time = np.arange(SFlen) / audio_cfg.rate
         coeffs = np.conj(np.exp(-1j*2*np.pi*params.fc*time[-1::-1]))
 
         recv_F = lfilter(b=coeffs, a=1, x=recv)
@@ -135,9 +111,3 @@ if __name__ == '__main__':
         ber = np.sum(
             np.abs(payload - payload_hat)) / payload.shape[0]
         logging.info(f'Simulation has finished. Estimated BER: {ber}')
-
-    except Exception as e:
-        logging.critical(f"Oops: {e.what()}. Simulation stopped")
-
-    finally:
-        ds.flush()
