@@ -8,8 +8,8 @@ class GItype(Enum):
     CS = 2  # Cyclic suffix
 
 
-@dataclass
+@dataclass(frozen=True)
 class OFDMconfig:
-    Ncs: int  # subcarriers number
+    Nsc: int  # subcarriers number
     GI: int  # guard interval
     Type: GItype

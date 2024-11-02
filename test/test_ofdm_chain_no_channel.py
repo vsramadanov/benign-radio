@@ -34,7 +34,7 @@ def test_ofdm_chain(fs):
 
     Nsc = int(SimParams().fs / Scs)  # number of subcarriers
     test_ofdm_config = OFDMconfig(
-        Ncs=Nsc,
+        Nsc=Nsc,
         GI=4,
         Type=GItype.CP,
     )

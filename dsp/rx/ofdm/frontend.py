@@ -24,7 +24,7 @@ class OFDMfrontend(SimUnit):
         return ofdm_symbols[:, :-self.config.GI]
 
     def process(self, ofdm_symbols: np.array) -> np.array:
-        symbol_len = self.config.Ncs + self.config.GI
+        symbol_len = self.config.Nsc + self.config.GI
         L = len(ofdm_symbols) // symbol_len  # number of OFDM symbols
         ofdm_symbols.resize(L, symbol_len)
 
