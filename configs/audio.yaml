@@ -1,0 +1,9 @@
+SimParams: 
+    fs: 1000
+    fc: 4000
+
+AudioChannelConfig: 
+    rate: 48000
+    channels: 1
+    format: 'Int16'
+    device: 'default'

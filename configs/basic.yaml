@@ -1,0 +1,7 @@
+DataStore: 
+    names: ['__main__'] 
+    path: 'out/dumps' 
+
+logging: 
+    filename: 'out/audio_sim.log' 
+    level: DEBUG 
