@@ -1,0 +1,8 @@
+scenario:
+  Nsymb: 64     # number of OFDM symbols
+  ofdm_rate: 20 # OFDM symbol rate
+
+OFDMconfig:
+  Nsc: 64
+  guard_interval_length: 28 # 100 points per OFDM symbol
+  guard_interval_type: cyclic_prefix

@@ -1,6 +1,7 @@
 import logging
 import argparse
 import importlib
+import traceback
 import yaml
 
 from simulation.params import SimParams
@@ -38,7 +39,13 @@ def load_config(file_path):
 if __name__ == '__main__':
 
     args = parser.parse_args()
+
     config = load_config(args.config)
+    if isinstance(config, list):
+        combined_data = {}
+        for item in config:
+            combined_data.update(item)
+        config = combined_data
 
     if args.set:
         for key, value in args.set:
@@ -46,7 +53,6 @@ if __name__ == '__main__':
             for entry in key.split('.'):
                 field = field[entry]
             field = value
-    print(f"logging config: {config}")
     logging.basicConfig(**config['logging'])
     for module in ['matplotlib', 'PIL']:
         logger = logging.getLogger(module)
@@ -64,6 +70,7 @@ if __name__ == '__main__':
 
     except Exception as e:
         logging.critical(f"Oops: {type(e).__name__}: {e}. Simulation stopped")
+        traceback.print_exception(e)
 
     finally:
         ds.flush()

@@ -6,7 +6,7 @@ from simulation.params import SimParams
 from simulation.datastore import DataStore
 from simulation.datastore import DataStoreConfig
 
-from dsp.tx.ofdm import OFDM, OFDMconfig, GItype
+from dsp.tx.ofdm import OFDM, OFDMconfig
 
 from dsp.rx.ofdm.frontend import OFDMfrontend
 from dsp.rx.ofdm.equalizer import OFDMChannleEqualizer
@@ -35,8 +35,8 @@ def test_ofdm_chain(fs):
     Nsc = int(SimParams().fs / Scs)  # number of subcarriers
     test_ofdm_config = OFDMconfig(
         Nsc=Nsc,
-        GI=4,
-        Type=GItype.CP,
+        guard_interval_length=4,
+        guard_interval_type='cyclic_prefix',
     )
 
     ofdm_modulator = OFDM(config=test_ofdm_config)
