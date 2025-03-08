@@ -1,6 +1,7 @@
 scenario:
-  Nsymb: 64     # number of OFDM symbols
-  ofdm_rate: 20 # OFDM symbol rate
+  Nsymb: 1     # number of OFDM symbols
+  constellation:
+    order: 4
 
 OFDMconfig:
   Nsc: 64
