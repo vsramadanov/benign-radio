@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 
+from scipy.signal import lfilter
+from numpy import concatenate as cat
 
 from test.audio import AudioChannelConfig
 from test.audio import RawAudioChannel
@@ -20,6 +22,18 @@ from dsp.rx.ofdm.frontend import OFDMfrontend
 from dsp.rx.ofdm.equalizer import OFDMChannleEqualizer
 from dsp.rx.ofdm.estimator import OFDMChannleEstimator
 from dsp.rx.ofdm.chain import OFDMRxChain
+
+# FIR 16 taps, Low pass filter, cutoff = 2 kHz
+b_lo = np.array([0.03157319, 0.04156552, 0.05169825, 0.06138433, 0.07002734,
+                 0.07707174, 0.08205098, 0.08462865, 0.08462865, 0.08205098,
+                 0.07707174, 0.07002734, 0.06138433, 0.05169825, 0.04156552,
+                 0.03157319])
+
+# FIR 16 taps, Band pass filter, F_lo = 3 kHz F_hi = 5 kHz
+b_bp = np.array([-0.06280036, -0.09516154, -0.10379872, -0.0815819, -0.03158135,
+                 0.03292086,  0.09244693,  0.12802351,  0.12802351,  0.09244693,
+                 0.03292086, -0.03158135, -0.0815819, -0.10379872, -0.09516154,
+                 -0.06280036])
 
 
 class Scenario:
@@ -85,11 +99,24 @@ class Scenario:
         )
         demodulator = QAMSoftDemodulator(constellation=constellation)
 
+        # Filtering
+        filt_iq_signal = lfilter(
+            x=cat((recv_iq_signal, np.zeros(len(b_bp)))),
+            b=b_bp,
+            a=1)
+
         # Downconversion
-        downconv_iq_signal = recv_iq_signal * np.conj(ref)
-        rx_ofdm_signal = downconv_iq_signal[::audio_upscale_factor]
-        ds.store(rx_ofdm_signal=rx_ofdm_signal)
-        
+        time = np.arange(len(filt_iq_signal)) / audio_cfg.rate
+        ref = np.exp(-1j*2*np.pi*params.fc*time)
+        downconv_iq_signal = filt_iq_signal * ref
+        filtered_iq_signal = lfilter(
+            x=cat((downconv_iq_signal, np.zeros(len(b_lo)))),
+            b=b_lo,
+            a=1)
+        rx_ofdm_signal = filtered_iq_signal[15::audio_upscale_factor]
+        ds.store(downconv_iq_signal=downconv_iq_signal,
+                 rx_ofdm_signal=rx_ofdm_signal)
+
         # OFDM demodulation
         rx_symbols = ofdm_rx_chain.process(rx_ofdm_signal)
         ds.store(rx_symbols=rx_symbols)
